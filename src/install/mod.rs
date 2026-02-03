@@ -10,6 +10,7 @@ pub mod mcp_config;
 pub mod mcp_installer;
 pub mod types;
 pub mod uninstaller;
+pub mod windows;
 
 pub use discovery::{DiscoveryError, discover_skills};
 pub use types::*;
