@@ -43,8 +43,44 @@ fn validate_component_name(name: &str) -> Result<(), InstallError> {
     {
         return Err(InstallError::InvalidComponentName(name.to_string()));
     }
+    if cfg!(windows) && is_windows_invalid_component_name(name) {
+        return Err(InstallError::InvalidComponentName(name.to_string()));
+    }
     Ok(())
 }
+
+fn is_windows_invalid_component_name(name: &str) -> bool {
+    if name.ends_with(' ') || name.ends_with('.') {
+        return true;
+    }
+
+    if name.chars().any(|c| c < '\u{20}' || WINDOWS_INVALID_CHARS.contains(&c)) {
+        return true;
+    }
+
+    is_windows_reserved_name(name)
+}
+
+fn is_windows_reserved_name(name: &str) -> bool {
+    let base = name.split('.').next().unwrap_or("");
+    let upper = base.to_ascii_uppercase();
+    matches!(
+        upper.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL"
+    ) || is_windows_reserved_device(&upper)
+}
+
+fn is_windows_reserved_device(upper: &str) -> bool {
+    if upper.len() == 4 {
+        let (prefix, digit) = upper.split_at(3);
+        if matches!(prefix, "COM" | "LPT") {
+            return matches!(digit, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9");
+        }
+    }
+    false
+}
+
+const WINDOWS_INVALID_CHARS: [char; 9] = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
 fn parse_harness_kind(id: &str) -> Option<HarnessKind> {
     match id {
@@ -57,14 +93,25 @@ fn parse_harness_kind(id: &str) -> Option<HarnessKind> {
 }
 
 pub fn sanitize_name_for_opencode(name: &str) -> String {
-    name.to_lowercase()
+    let mut sanitized = name
+        .to_lowercase()
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect::<String>()
         .split('-')
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
-        .join("-")
+        .join("-");
+
+    if sanitized.is_empty() {
+        sanitized = "skill".to_string();
+    }
+
+    if cfg!(windows) && is_windows_reserved_name(&sanitized) {
+        sanitized.push_str("-skill");
+    }
+
+    sanitized
 }
 
 pub fn transform_skill_for_opencode(content: &str, sanitized_dir_name: &str) -> String {

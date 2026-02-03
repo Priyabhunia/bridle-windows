@@ -43,7 +43,7 @@ pub struct BridleConfig {
     active_profile: Option<String>,
 
     /// Preferred editor for editing profiles.
-    /// Falls back to $EDITOR env var, then "vi".
+    /// Falls back to $VISUAL or $EDITOR env vars, then a platform default.
     #[serde(default)]
     pub editor: Option<String>,
 
@@ -60,8 +60,9 @@ impl BridleConfig {
     pub fn editor(&self) -> String {
         self.editor
             .clone()
+            .or_else(|| std::env::var("VISUAL").ok())
             .or_else(|| std::env::var("EDITOR").ok())
-            .unwrap_or_else(|| "vi".to_string())
+            .unwrap_or_else(platform_default_editor)
     }
 
     /// Parse editor string into program and arguments.
@@ -71,9 +72,20 @@ impl BridleConfig {
     pub fn editor_command(&self) -> (String, Vec<String>) {
         let editor = self.editor();
         let mut parts = editor.split_whitespace();
-        let program = parts.next().unwrap_or("vi").to_string();
+        let program = parts
+            .next()
+            .map(str::to_string)
+            .unwrap_or_else(platform_default_editor);
         let args: Vec<String> = parts.map(String::from).collect();
         (program, args)
+    }
+}
+
+fn platform_default_editor() -> String {
+    if cfg!(windows) {
+        "notepad".to_string()
+    } else {
+        "vi".to_string()
     }
 }
 

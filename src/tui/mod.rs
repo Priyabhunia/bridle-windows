@@ -9,13 +9,15 @@ mod widgets;
 use std::io::{self, Stdout};
 
 use crossterm::{
+    cursor::MoveTo,
     event::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEvent,
         MouseEventKind,
     },
     execute,
     terminal::{
-        ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+        Clear as TermClear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+        enable_raw_mode,
     },
 };
 use harness_locate::{Harness, HarnessKind, InstallationStatus};
@@ -409,7 +411,7 @@ impl App {
         let _ = restore_terminal_for_editor();
 
         // Clear screen and show message while editor is open
-        print!("\x1B[2J\x1B[H"); // Clear screen, move cursor to top-left
+        let _ = execute!(io::stdout(), TermClear(ClearType::All), MoveTo(0, 0));
         println!("Editing profile: {}", profile.name);
         println!("Close the editor to return to bridle.\n");
         let _ = std::io::Write::flush(&mut std::io::stdout());
